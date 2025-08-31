@@ -2,147 +2,169 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>수영장 이용객 예측</title>
-    <!-- Chart.js 라이브러리 추가 -->
+    <title>국민체육센터 수영장 혼잡도 안내</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 800px; margin: auto; padding: 20px; text-align: center; color: #333; }
-        h1 { color: #2c3e50; }
-        .controls { margin: 20px 0; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        h1, h2 { color: #2c3e50; }
+        #current-time { font-size: 16px; color: #555; margin-bottom: 20px; }
+        .realtime-container { border: 2px solid #e74c3c; border-radius: 10px; padding: 15px; margin-bottom: 30px; }
+        .realtime-container h2 { margin-top: 0; color: #e74c3c; display: flex; align-items: center; justify-content: center; }
+        .realtime-container h2::before { content: '🔴'; margin-right: 10px; font-size: 16px; animation: blink 1.5s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+        .status-cards { display: flex; justify-content: space-around; gap: 15px; }
+        .card { flex: 1; background-color: #f9f9f9; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .card h3 { margin-top: 0; color: #555; }
+        .card p { font-size: 2.5em; font-weight: bold; color: #2c3e50; margin: 0; }
+        .prediction-container { margin-top: 20px; }
+        .controls { margin: 20px 0; display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
         .controls label { font-size: 16px; }
         .controls input[type="date"] { padding: 8px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; }
         button { background-color: #3498db; color: white; padding: 12px 20px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; transition: background-color 0.3s; }
         button:hover { background-color: #2980b9; }
         .info-box { margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background-color: #f9f9f9; text-align: left; display: none; }
-        .info-box h4 { margin-top: 0; }
-        #explanation-box { margin-top: 20px; padding: 10px; border-top: 2px solid #3498db; background-color: #ecf0f1; font-size: 14px; color: #34495e; text-align: left; display: none; }
+        #explanation-box { border-top: 2px solid #3498db; }
         #chart-container { margin-top: 20px; min-height: 400px; position: relative; }
     </style>
 </head>
 <body>
-    <h1>AI 수영장 이용객 예측</h1>
-    
-    <div class="controls">
-        <label for="predict-date">예측할 날짜 선택:</label>
-        <input type="date" id="predict-date">
-        <button onclick="getPrediction()">그래프로 예측 보기!</button>
+    <h1>국민체육센터 수영장 혼잡도 안내</h1>
+    <p id="current-time"></p>
+
+    <div class="realtime-container">
+        <h2>실시간 이용 현황</h2>
+        <div class="status-cards">
+            <div class="card total"><h3>총 인원</h3><p id="total-count">--</p></div>
+            <div class="card male"><h3>👨 남자</h3><p id="male-count">--</p></div>
+            <div class="card female"><h3>👩‍🦰 여자</h3><p id="female-count">--</p></div>
+        </div>
     </div>
-    
-    <h2 id="prediction-title" style="margin-top: 20px;"></h2>
-    <div id="weather-info" class="info-box"></div>
-    <div id="chart-container">
-        <canvas id="predictionChart"></canvas>
+
+    <div class="prediction-container">
+        <h2>AI 이용객 예측</h2>
+        <div class="controls">
+            <label for="predict-date">특정 날짜 예측:</label>
+            <input type="date" id="predict-date">
+            <button onclick="getPredictionByDate()">선택 날짜로 예측 보기</button>
+        </div>
+        <p style="font-size: 14px; margin-top: 15px;"><a href="/analysis">AI 예측 모델 분석 정보 자세히 보기</a></p>
+        <h2 id="prediction-title" style="margin-top: 20px;"></h2>
+        <div id="weather-info" class="info-box"></div>
+        <div id="chart-container"><canvas id="predictionChart"></canvas></div>
+        <div id="explanation-box" class="info-box"></div>
     </div>
-    <div id="explanation-box" class="info-box"></div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const datePicker = document.getElementById('predict-date');
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            datePicker.value = tomorrow.toISOString().split('T')[0];
-        });
-
         let myChart = null;
 
-        function getPrediction() {
+        function drawChart(predictions, weatherSource, selectedDateStr) {
+            const weatherDiv = document.getElementById('weather-info');
+            const chartContainer = document.getElementById('chart-container');
+            const explanationBox = document.getElementById('explanation-box');
+            
+            chartContainer.innerHTML = '<canvas id="predictionChart"></canvas>';
+            const ctx = document.getElementById('predictionChart').getContext('2d');
+            
+            const labels = predictions.map(item => item.label || `${item.hour}시`);
+            const maleData = predictions.map(item => item.남자_예상);
+            const femaleData = predictions.map(item => item.여자_예상);
+            const totalData = maleData.map((d, i) => d + femaleData[i]);
+
+            if (myChart) myChart.destroy();
+            
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: '남자 예상 이용객', data: maleData, backgroundColor: 'rgba(54, 162, 235, 0.6)' },
+                        { label: '여자 예상 이용객', data: femaleData, backgroundColor: 'rgba(255, 99, 132, 0.6)' },
+                        { label: '총 예상 이용객', data: totalData, type: 'line', borderColor: 'rgba(75, 192, 192, 1)', fill: false, tension: 0.1 }
+                    ]
+                },
+                options: { scales: { y: { beginAtZero: true, title: { display: true, text: '예상 이용객 수 (명)' } } }, responsive: true, maintainAspectRatio: false }
+            });
+
+            if (weatherSource) {
+                if (weatherSource.includes('미포함')) {
+                    weatherDiv.style.display = 'none';
+                    explanationBox.innerHTML = `<p><strong>※ 예측 정보 안내</strong></p><ul><li>선택하신 날짜는 단기예보 제공 기간을 벗어나, <strong>날씨 정보를 제외하고</strong> 과거 이용객 데이터의 시간/요일/공휴일 패턴만으로 AI 모델이 계산한 결과입니다.</li><li>날씨 변수가 제외되어 실제 이용객 수와 오차가 더 클 수 있으니 참고용으로만 활용해 주시기 바랍니다.</li></ul>`;
+                } else {
+                    const avgTemp = predictions.reduce((sum, item) => sum + item.기온, 0) / predictions.length;
+                    const totalRain = predictions.reduce((sum, item) => sum + item.강수량, 0);
+                    const avgHumidity = predictions.reduce((sum, item) => sum + item.습도, 0) / predictions.length;
+                    weatherDiv.innerHTML = `<h4>🌦️ ${selectedDateStr} 참고 날씨 예보</h4><p><b>데이터 출처: ${weatherSource}</b></p><p>평균기온: ${avgTemp.toFixed(1)}°C | 총 강수량: ${totalRain.toFixed(1)}mm | 평균습도: ${avgHumidity.toFixed(0)}%</p>`;
+                    weatherDiv.style.display = 'block';
+                    explanationBox.innerHTML = `<p><strong>※ 예측 정보 안내</strong></p><ul><li>본 예측은 과거 3년간의 이용객 데이터와 기상청 날씨 예보를 바탕으로 <strong>AI(머신러닝) 모델이 계산한 결과</strong>입니다.</li><li>모델의 평균 오차 범위는 <strong>남자 ±3명, 여자 ±5명</strong> 수준이며, 실제 이용객 수와 차이가 발생할 수 있으니 참고용으로 활용해 주시기 바랍니다.</li></ul>`;
+                }
+                explanationBox.style.display = 'block';
+            }
+        }
+
+        function handleFetchError(err) {
+            const chartContainer = document.getElementById('chart-container');
+            console.error('Error:', err);
+            chartContainer.innerHTML = `<p style="color: red;"><strong>오류 발생:</strong> ${err.message || '서버와 통신할 수 없습니다.'}</p>`;
+        }
+
+        // 특정 날짜를 선택해서 예측하는 기존 함수
+        function getPredictionByDate() {
             const selectedDate = document.getElementById('predict-date').value;
             if (!selectedDate) {
                 alert("예측할 날짜를 선택해주세요.");
                 return;
             }
-
             document.getElementById('prediction-title').innerText = `${selectedDate} 예상 혼잡도`;
-            const weatherDiv = document.getElementById('weather-info');
-            const chartContainer = document.getElementById('chart-container');
-            const explanationBox = document.getElementById('explanation-box');
+            document.getElementById('chart-container').innerHTML = '<p>AI가 시간대별 예측을 계산하는 중...</p>';
             
-            chartContainer.innerHTML = '<p>AI가 시간대별 예측을 계산하는 중...</p>';
-            weatherDiv.style.display = 'none';
-            explanationBox.style.display = 'none';
-
-            fetch(`/predict?date=${selectedDate}`)
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(err => { throw err; });
-                    }
-                    return response.json();
+            fetch(`./predict?date=${selectedDate}`)
+                .then(response => response.json().then(data => ({ status: response.status, body: data })))
+                .then(({ status, body }) => {
+                    if (status !== 200) { throw body; }
+                    drawChart(body.predictions, body.weather_source, selectedDate);
                 })
-                .then(data => {
-                    if (data.error) {
-                        chartContainer.innerHTML = `<p style="color: red;">${data.message || data.error}</p>`;
-                        return;
-                    }
-                    
-                    const predictions = data.predictions;
-                    const weather_source_text = data.weather_source;
-
-                    chartContainer.innerHTML = '<canvas id="predictionChart"></canvas>';
-                    const ctx = document.getElementById('predictionChart').getContext('2d');
-                    
-                    const labels = predictions.map(item => `${item.hour}시`);
-                    const maleData = predictions.map(item => item.남자_예상);
-                    const femaleData = predictions.map(item => item.여자_예상);
-                    const totalData = maleData.map((d, i) => d + femaleData[i]);
-
-                    if (myChart) { myChart.destroy(); }
-                    
-                    myChart = new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: labels,
-                            datasets: [
-                                { label: '남자 예상 이용객', data: maleData, backgroundColor: 'rgba(54, 162, 235, 0.6)' },
-                                { label: '여자 예상 이용객', data: femaleData, backgroundColor: 'rgba(255, 99, 132, 0.6)' },
-                                {
-                                    label: '총 예상 이용객',
-                                    data: totalData,
-                                    type: 'line',
-                                    borderColor: 'rgba(75, 192, 192, 1)',
-                                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                    fill: false,
-                                    tension: 0.1
-                                }
-                            ]
-                        },
-                        options: {
-                            scales: { y: { beginAtZero: true, title: { display: true, text: '예상 이용객 수 (명)' } } },
-                            responsive: true,
-                            maintainAspectRatio: false
-                        }
-                    });
-
-                    // 날씨 정보 및 설명 표시 로직
-                    if (weather_source_text.includes('미포함')) {
-                        weatherDiv.style.display = 'none';
-                        explanationBox.innerHTML = `<p><strong>※ 예측 정보 안내</strong></p>
-                                                    <ul>
-                                                        <li>선택하신 날짜는 단기예보 제공 기간을 벗어나, <strong>날씨 정보를 제외하고</strong> 과거 이용객 데이터의 시간/요일 패턴만으로 AI 모델이 계산한 결과입니다.</li>
-                                                        <li>날씨 변수가 제외되어 실제 이용객 수와 오차가 더 클 수 있으니 참고용으로만 활용해 주시기 바랍니다.</li>
-                                                    </ul>`;
-                    } else {
-                        const avgTemp = predictions.reduce((sum, item) => sum + item.기온, 0) / predictions.length;
-                        const totalRain = predictions.reduce((sum, item) => sum + item.강수량, 0);
-                        const avgHumidity = predictions.reduce((sum, item) => sum + item.습도, 0) / predictions.length;
-
-                        weatherDiv.innerHTML = `<h4>🌦️ ${selectedDate} 참고 날씨 예보</h4>
-                                              <p><b>데이터 출처: ${weather_source_text}</b></p>
-                                              <p>평균기온: ${avgTemp.toFixed(1)}°C | 총 강수량: ${totalRain.toFixed(1)}mm | 평균습도: ${avgHumidity.toFixed(0)}%</p>`;
-                        weatherDiv.style.display = 'block';
-
-                        explanationBox.innerHTML = `<p><strong>※ 예측 정보 안내</strong></p>
-                                                    <ul>
-                                                        <li>본 예측은 과거 3년간의 이용객 데이터와 기상청 날씨 예보를 바탕으로 <strong>AI(머신러닝) 모델이 계산한 결과</strong>입니다.</li>
-                                                        <li>모델의 평균 오차 범위는 <strong>남자 ±3명, 여자 ±5명</strong> 수준이며, 실제 이용객 수와 차이가 발생할 수 있으니 참고용으로 활용해 주시기 바랍니다.</li>
-                                                    </ul>`;
-                    }
-                    explanationBox.style.display = 'block';
-                })
-                .catch(err => {
-                    console.error('Error:', err);
-                    chartContainer.innerHTML = `<p style="color: red;"><strong>오류 발생:</strong> ${err.message || '서버와 통신할 수 없습니다.'}</p>`;
-                });
+                .catch(handleFetchError);
         }
+
+        // 페이지 로딩 시 48시간 예측을 실행하는 새로운 함수
+        function getLivePrediction() {
+            document.getElementById('prediction-title').innerText = `현재부터 48시간 예상 혼잡도`;
+            document.getElementById('chart-container').innerHTML = '<p>AI가 실시간 예측을 계산하는 중...</p>';
+            
+            fetch('./predict_live')
+                .then(response => response.json().then(data => ({ status: response.status, body: data })))
+                .then(({ status, body }) => {
+                    if (status !== 200) { throw body; }
+                    drawChart(body.predictions, null, "실시간");
+                })
+                .catch(handleFetchError);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const datePicker = document.getElementById('predict-date');
+            const today = new Date();
+            datePicker.min = today.toISOString().split('T')[0];
+
+            const timeDiv = document.getElementById('current-time');
+            function updateTime() {
+                const now = new Date();
+                timeDiv.innerText = now.toLocaleString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' });
+            }
+            updateTime();
+            setInterval(updateTime, 1000);
+
+            function simulateRealtimeData() {
+                const total = Math.floor(Math.random() * 80) + 10;
+                const male = Math.floor(total * (Math.random() * 0.4 + 0.3));
+                document.getElementById('total-count').innerText = total;
+                document.getElementById('male-count').innerText = male;
+                document.getElementById('female-count').innerText = total - male;
+            }
+            simulateRealtimeData();
+            setInterval(simulateRealtimeData, 5000);
+
+            getLivePrediction(); // 페이지 로딩 시 48시간 예측 실행
+        });
     </script>
 </body>
 </html>
