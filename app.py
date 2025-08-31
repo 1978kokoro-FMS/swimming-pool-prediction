@@ -9,50 +9,56 @@ app = Flask(__name__)
 # --- 본인의 API 인증키를 여기에 붙여넣으세요 ---
 KMA_API_KEY = "6e5230b95ef0ab65ad4fb63e83f1b512f525f5a708933928098464ffa47da789"
 
+# app.py 파일에서 이 함수 부분을 교체해주세요.
+
 def get_weather_forecast(target_date):
-    """기상청 단기예보 API를 호출하여 특정 날짜의 날씨 예보를 가져오는 함수"""
-    
+    """기상청 단기예보 API를 호출하여 특정 날짜의 날씨 예보를 가져오는 함수 (안정성 강화 버전)"""
     base_date = (target_date - timedelta(days=1)).strftime('%Y%m%d')
     url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
     params = {
-        'serviceKey': KMA_API_KEY,
-        'pageNo': '1',
-        'numOfRows': '1000',
-        'dataType': 'JSON',
-        'base_date': base_date,
-        'base_time': '2300',
-        'nx': '60',   # 의왕시 내손동 X 좌표
-        'ny': '122'  # 의왕시 내손동 Y 좌표
+        'serviceKey': KMA_API_KEY, 'pageNo': '1', 'numOfRows': '1000',
+        'dataType': 'JSON', 'base_date': base_date, 'base_time': '2300',
+        'nx': '60', 'ny': '122'
     }
     try:
         response = requests.get(url, params=params, timeout=30)
-        response.raise_for_status() # HTTP 오류가 있으면 예외 발생
-        weather_data = response.json().get('response', {}).get('body', {}).get('items', {}).get('item', [])
-    except requests.exceptions.RequestException as e:
-        print(f"API 호출 오류: {e}")
+        if response.status_code != 200:
+            print(f"API 에러: HTTP 상태 코드 {response.status_code}")
+            return None
+
+        data = response.json()
+        # API가 보내는 에러 코드 확인
+        if data.get('response', {}).get('header', {}).get('resultCode') != '00':
+            error_msg = data.get('response', {}).get('header', {}).get('resultMsg', '알 수 없는 오류')
+            print(f"API 에러 메시지: {error_msg}")
+            return None
+
+        weather_data = data.get('response', {}).get('body', {}).get('items', {}).get('item', [])
+    except (requests.exceptions.RequestException, ValueError) as e: # JSON 디코딩 오류 포함
+        print(f"API 호출 또는 JSON 파싱 오류: {e}")
         return None
 
     forecast = {}
     if not weather_data: return None
 
     for item in weather_data:
-        if item['fcstDate'] != target_date.strftime('%Y%m%d'): continue
-        hour = int(item['fcstTime'][:2])
+        if item.get('fcstDate') != target_date.strftime('%Y%m%d'): continue
+        hour = int(item.get('fcstTime', '0000')[:2])
         if hour not in forecast:
             forecast[hour] = {'기온': 0, '강수량': 0, '습도': 0, '적설': 0}
-        category, value = item['category'], item['fcstValue']
-        if category == 'TMP': forecast[hour]['기온'] = float(value)
-        elif category == 'PCP':
-            try:
-                if 'mm' in value: value = value.replace('mm', '')
-                forecast[hour]['강수량'] = float(value)
-            except (ValueError, TypeError): forecast[hour]['강수량'] = 0.0
-        elif category == 'REH': forecast[hour]['습도'] = float(value)
-        elif category == 'SNO':
-            try:
-                if 'cm' in value: value = value.replace('cm', '')
-                forecast[hour]['적설'] = float(value)
-            except (ValueError, TypeError): forecast[hour]['적설'] = 0.0
+
+        category, value = item.get('category'), item.get('fcstValue')
+        if value is None: continue
+
+        try:
+            numeric_value = float(value)
+        except (ValueError, TypeError):
+            numeric_value = 0.0
+
+        if category == 'TMP': forecast[hour]['기온'] = numeric_value
+        elif category == 'REH': forecast[hour]['습도'] = numeric_value
+        elif category == 'PCP': forecast[hour]['강수량'] = numeric_value
+        elif category == 'SNO': forecast[hour]['적설'] = numeric_value
     return forecast
 
 @app.route('/')
@@ -109,4 +115,5 @@ if __name__ == '__main__':
     import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
