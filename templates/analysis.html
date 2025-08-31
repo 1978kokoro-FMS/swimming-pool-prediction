@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>AI 예측 모델 분석 정보</title>
+    <!-- Chart.js 라이브러리 추가 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 800px; margin: auto; padding: 20px; color: #333; }
+        h1, h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        /* --- 자료 작성일 스타일 추가 --- */
+        .report-date { text-align: right; color: #555; font-size: 14px; margin-top: -10px; margin-bottom: 20px; }
+        .info-section { margin-bottom: 30px; text-align: left; }
+        .info-section p, .info-section li { line-height: 1.6; }
+        .back-link { display: inline-block; margin-top: 20px; padding: 10px 15px; background-color: #3498db; color: white; text-decoration: none; border-radius: 5px; transition: background-color 0.3s; }
+        .back-link:hover { background-color: #2980b9; }
+        .chart-container { margin-top: 15px; margin-bottom: 25px; }
+    </style>
+</head>
+<body>
+    <h1>AI 예측 모델 분석 정보</h1>
+    <!-- 자료 작성일 추가 -->
+    <p class="report-date">자료 작성일: 2025년 8월 31일</p>
+
+    <div class="info-section">
+        <h2>AI 모델이 고려하는 주요 요소</h2>
+        <p>본 AI 예측 모델은 단순히 과거 이용객 수만 보는 것이 아니라, 다음과 같은 복합적인 요소들의 상호작용과 패턴을 학습하여 미래 이용객 수를 예측합니다.</p>
+        <ul>
+            <li><strong>시간적 요소:</strong> 특정 시간대(오전/오후), 요일(주중/주말), 월별/계절별 주기성, **공휴일** 등 시간의 흐름에 따른 패턴을 분석합니다.</li>
+            <li><strong>기상 요소:</strong> 기온, 강수량, 습도, 적설량 등 날씨 변화가 이용객 수에 미치는 영향을 분석합니다. 예를 들어, 너무 덥거나 비가 많이 오는 날의 이용객 변화 패턴을 학습합니다.</li>
+            <li><strong>복합 요소:</strong> '공휴일이지만 비가 오는 날', '평일 저녁이지만 유난히 더운 날'처럼 여러 요소가 결합했을 때 나타나는 특별한 패턴을 통계적으로 분석하여 예측에 반영합니다.</li>
+        </ul>
+    </div>
+
+    <div class="info-section">
+        <h2>과거 3년 데이터 분석 인사이트</h2>
+        <p>AI 모델 학습에 사용된 과거 3년간의 수영장 이용 데이터를 통계적으로 분석한 결과, 다음과 같은 주요 패턴이 발견되었습니다.</p>
+        
+        <h4>요일별 패턴</h4>
+        <div class="chart-container">
+            <canvas id="dailyPatternChart"></canvas>
+        </div>
+
+        <h4>시간대별 패턴</h4>
+        <div class="chart-container">
+            <canvas id="hourlyPatternChart"></canvas>
+        </div>
+
+        <h4>월별/계절별 패턴</h4>
+        <div class="chart-container">
+            <canvas id="monthlyPatternChart"></canvas>
+        </div>
+        
+        <h4>성별 패턴</h4>
+        <div class="chart-container">
+             <canvas id="genderPatternChart"></canvas>
+        </div>
+    </div>
+
+    <div class="info-section">
+        <h2>모델 성능 및 오차 범위</h2>
+        <p>현재 운영 중인 모델은 상기된 패턴들을 학습한 결과, 다음과 같은 평균 오차 범위를 가집니다.</p>
+        <ul>
+            <li><strong>남자 이용객 모델:</strong> 평균 오차 약 ±3명</li>
+            <li><strong>여자 이용객 모델:</strong> 평균 오차 약 ±5명</li>
+        </ul>
+    </div>
+
+    <a href="/" class="back-link">예측 페이지로 돌아가기</a>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            // --- generate_stats.py의 실제 분석 결과 ---
+            // 요일별 데이터
+            const daily_data = [102193, 101215, 99635, 98413, 95470, 46557, 24167];
+
+            // 시간대별 데이터
+            const hourly_labels = ['6시', '7시', '8시', '9시', '10시', '11시', '12시', '13시', '14시', '15시', '16시', '17시', '18시', '19시', '20시', '21시', '22시'];
+            const hourly_weekday_data = [40359, 36139, 37245, 41255, 30992, 31557, 29386, 38058, 31164, 26206, 32008, 25140, 28116, 27883, 3620, 4, 0];
+            const hourly_weekend_data = [4640, 1344, 9625, 9867, 5084, 857, 3927, 7974, 6772, 9959, 5354, 592, 3488, 3591, 598, 3, 0];
+
+            // 월별 데이터
+            const monthly_data = [44316, 46065, 45258, 51023, 51719, 27566, 68718, 63429, 40428, 41664, 43973, 43491];
+
+            // 성별 데이터
+            const gender_labels = ['오전', '오후', '저녁'];
+            const male_gender_data = [27, 31, 49];
+            const female_gender_data = [73, 69, 51];
+            // ---------------------------------------------
+            
+            
+            // 1. 요일별 패턴 그래프
+            new Chart(document.getElementById('dailyPatternChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['월', '화', '수', '목', '금', '토', '일'],
+                    datasets: [{
+                        label: '총 이용객 수',
+                        data: daily_data, 
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                    }]
+                },
+                options: { plugins: { legend: { display: false } } }
+            });
+
+            // 2. 시간대별 패턴 그래프
+            new Chart(document.getElementById('hourlyPatternChart'), {
+                type: 'line',
+                data: {
+                    labels: hourly_labels,
+                    datasets: [
+                        { label: '주중/공휴일 제외', data: hourly_weekday_data, borderColor: 'rgba(255, 99, 132, 1)', tension: 0.1 },
+                        { label: '주말/공휴일', data: hourly_weekend_data, borderColor: 'rgba(75, 192, 192, 1)', tension: 0.1 }
+                    ]
+                }
+            });
+
+            // 3. 월별/계절별 패턴 그래프
+            new Chart(document.getElementById('monthlyPatternChart'), {
+                type: 'line',
+                data: {
+                    labels: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
+                    datasets: [{
+                        label: '총 이용객 수',
+                        data: monthly_data,
+                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        fill: true
+                    }]
+                },
+                options: { plugins: { legend: { display: false } } }
+            });
+            
+            // 4. 성별 패턴 그래프
+            new Chart(document.getElementById('genderPatternChart'), {
+                type: 'bar',
+                data: {
+                    labels: gender_labels,
+                    datasets: [
+                        { label: '남자', data: male_gender_data, backgroundColor: 'rgba(54, 162, 235, 0.6)' },
+                        { label: '여자', data: female_gender_data, backgroundColor: 'rgba(255, 99, 132, 0.6)' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, ticks: { callback: value => value + "%" } }
+                    },
+                    plugins: { tooltip: { callbacks: { label: function(context) { return `${context.dataset.label}: ${context.raw}%`; } } } }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
