@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>국민체육센터 수영장 혼잡도 안내</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        /* 헤더 - 흰색 배경으로 변경 */
+        .header {
+            background: white;
+            color: #2c3e50;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-bottom: 4px solid transparent;
+            border-image: linear-gradient(135deg, #667eea 0%, #764ba2 100%) 1;
+        }
+        
+        .logo-container {
+            margin-bottom: 20px;
+        }
+        
+        .logo-container img {
+            height: 70px;
+            max-width: 280px;
+            object-fit: contain;
+            transition: transform 0.3s ease;
+        }
+        
+        .logo-container img:hover {
+            transform: scale(1.05);
+        }
+        
+        h1 { 
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-fill-color: transparent;
+        }
+        
+        #current-time { 
+            font-size: 16px;
+            color: #666;
+        }
+        
+        /* 메인 콘텐츠 영역 */
+        .content {
+            padding: 30px;
+        }
+        
+        /* AI 예측 섹션 */
+        .prediction-section {
+            margin-bottom: 40px;
+        }
+        
+        .section-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-title::before {
+            content: '🤖';
+            font-size: 28px;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin: 25px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .controls label {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .controls input[type="date"] {
+            padding: 12px 16px;
+            font-size: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .controls input[type="date"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .analysis-link {
+            text-align: center;
+            margin: 15px 0;
+        }
+        
+        .analysis-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            padding: 8px 16px;
+            border-radius: 8px;
+        }
+        
+        .analysis-link a:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+        
+        #prediction-title {
+            text-align: center;
+            color: #2c3e50;
+            font-size: 20px;
+            margin: 20px 0;
+            font-weight: 600;
+        }
+        
+        .info-box {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            text-align: left;
+            display: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .info-box h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        #explanation-box {
+            border-left: 4px solid #667eea;
+        }
+        
+        #chart-container {
+            margin-top: 20px;
+            min-height: 400px;
+            position: relative;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 실시간 현황 - 하단 */
+        .realtime-section {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8eaf0 100%);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 40px;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .demo-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(255, 152, 0, 0.4);
+        }
+        
+        .realtime-section h3 {
+            color: #666;
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .status-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            opacity: 0.8;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        .card h4 {
+            color: #999;
+            font-size: 14px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .card p {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #bbb;
+            margin: 0;
+        }
+        
+        .card.total p { color: #667eea; }
+        .card.male p { color: #5dade2; }
+        .card.female p { color: #ec7063; }
+        
+        .service-notice {
+            font-size: 13px;
+            color: #666;
+            text-align: center;
+            padding: 12px;
+            background: #fff3cd;
+            border-radius: 8px;
+            border: 1px solid #ffeaa7;
+        }
+        
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .container {
+                border-radius: 0;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 22px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .status-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* 로딩 애니메이션 */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .loading {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 헤더 -->
+        <div class="header">
+            <div class="logo-container">
+                <img src="https://qiwqcylerloqxdqupgbk.supabase.co/storage/v1/object/public/company-assets/ci_img1.png" alt="의왕도시공사 로고">
+            </div>
+            <h1>국민체육센터 수영장 혼잡도 안내</h1>
+            <p id="current-time"></p>
+        </div>
+        
+        <!-- 메인 콘텐츠 -->
+        <div class="content">
+            <!-- AI 예측 섹션 -->
+            <div class="prediction-section">
+                <h2 class="section-title">AI 이용객 예측</h2>
+                
+                <div class="controls">
+                    <label for="predict-date">날짜 선택:</label>
+                    <input type="date" id="predict-date">
+                    <button onclick="getPredictionByDate()">📊 예측 보기</button>
+                </div>
+                
+                <div class="analysis-link">
+                    <a href="/analysis">📈 AI 예측 모델 분석 정보 자세히 보기</a>
+                </div>
+                
+                <h3 id="prediction-title"></h3>
+                <div id="weather-info" class="info-box"></div>
+                <div id="chart-container"><canvas id="predictionChart"></canvas></div>
+                <div id="explanation-box" class="info-box"></div>
+            </div>
+            
+            <!-- 실시간 현황 섹션 -->
+            <div class="realtime-section">
+                <span class="demo-badge">DEMO</span>
+                <h3>💡 실시간 이용 현황 (참고용)</h3>
+                <div class="status-cards">
+                    <div class="card total">
+                        <h4>총 인원</h4>
+                        <p id="total-count">--</p>
+                    </div>
+                    <div class="card male">
+                        <h4>👨 남자</h4>
+                        <p id="male-count">--</p>
+                    </div>
+                    <div class="card female">
+                        <h4>👩 여자</h4>
+                        <p id="female-count">--</p>
+                    </div>
+                </div>
+                <div class="service-notice">
+                    ⚠️ 실시간 데이터는 연출된 값이며, 카운터 시스템 연동 작업 진행 중입니다.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let myChart = null;
+
+        function drawChart(predictions, weatherSource, selectedDateStr) {
+            const weatherDiv = document.getElementById('weather-info');
+            const chartContainer = document.getElementById('chart-container');
+            const explanationBox = document.getElementById('explanation-box');
+            
+            chartContainer.innerHTML = '<canvas id="predictionChart"></canvas>';
+            const ctx = document.getElementById('predictionChart').getContext('2d');
+            
+            const labels = predictions.map(item => item.label || `${item.hour}시`);
+            const maleData = predictions.map(item => item.남자_예상);
+            const femaleData = predictions.map(item => item.여자_예상);
+            const totalData = maleData.map((d, i) => d + femaleData[i]);
+
+            if (myChart) myChart.destroy();
+            
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { 
+                            label: '남자 예상 이용객', 
+                            data: maleData, 
+                            backgroundColor: 'rgba(93, 173, 226, 0.8)',
+                            borderColor: 'rgba(93, 173, 226, 1)',
+                            borderWidth: 2,
+                            borderRadius: 8
+                        },
+                        { 
+                            label: '여자 예상 이용객', 
+                            data: femaleData, 
+                            backgroundColor: 'rgba(236, 112, 99, 0.8)',
+                            borderColor: 'rgba(236, 112, 99, 1)',
+                            borderWidth: 2,
+                            borderRadius: 8
+                        },
+                        { 
+                            label: '총 예상 이용객', 
+                            data: totalData, 
+                            type: 'line', 
+                            borderColor: 'rgba(102, 126, 234, 1)', 
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            fill: true, 
+                            tension: 0.4,
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointBackgroundColor: 'rgba(102, 126, 234, 1)'
+                        }
+                    ]
+                },
+                options: { 
+                    scales: { 
+                        y: { 
+                            beginAtZero: true, 
+                            title: { 
+                                display: true, 
+                                text: '예상 이용객 수 (명)',
+                                font: { size: 14, weight: 'bold' }
+                            },
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }, 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                font: { size: 12 },
+                                padding: 15
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (weatherSource) {
+                if (weatherSource.includes('미포함')) {
+                    weatherDiv.style.display = 'none';
+                    explanationBox.innerHTML = `<p><strong>※ 예측 정보 안내</strong></p><ul><li>선택하신 날짜는 단기예보 제공 기간을 벗어나, <strong>날씨 정보를 제외하고</strong> 과거 이용객 데이터의 시간/요일/공휴일 패턴만으로 AI 모델이 계산한 결과입니다.</li><li>날씨 변수가 제외되어 실제 이용객 수와 오차가 더 클 수 있으니 참고용으로만 활용해 주시기 바랍니다.</li></ul>`;
+                } else {
+                    const avgTemp = predictions.reduce((sum, item) => sum + item.기온, 0) / predictions.length;
+                    const totalRain = predictions.reduce((sum, item) => sum + item.강수량, 0);
+                    const avgHumidity = predictions.reduce((sum, item) => sum + item.습도, 0) / predictions.length;
+                    weatherDiv.innerHTML = `<h4>🌦️ ${selectedDateStr} 참고 날씨 예보</h4><p><b>데이터 출처: ${weatherSource}</b></p><p>평균기온: ${avgTemp.toFixed(1)}°C | 총 강수량: ${totalRain.toFixed(1)}mm | 평균습도: ${avgHumidity.toFixed(0)}%</p>`;
+                    weatherDiv.style.display = 'block';
+                    explanationBox.innerHTML = `<p><strong>※ 예측 정보 안내</strong></p><ul><li>본 예측은 과거 3년간의 이용객 데이터와 기상청 날씨 예보를 바탕으로 <strong>AI(머신러닝) 모델이 계산한 결과</strong>입니다.</li><li>모델의 평균 오차 범위는 <strong>남자 ±3명, 여자 ±5명</strong> 수준이며, 실제 이용객 수와 차이가 발생할 수 있으니 참고용으로 활용해 주시기 바랍니다.</li></ul>`;
+                }
+                explanationBox.style.display = 'block';
+            }
+        }
+
+        function handleFetchError(err) {
+            const chartContainer = document.getElementById('chart-container');
+            console.error('Error:', err);
+            chartContainer.innerHTML = `<p style="color: #e74c3c; padding: 20px;"><strong>⚠️ 오류 발생:</strong> ${err.message || '서버와 통신할 수 없습니다.'}</p>`;
+        }
+
+        function getPredictionByDate() {
+            const selectedDate = document.getElementById('predict-date').value;
+            if (!selectedDate) {
+                alert("예측할 날짜를 선택해주세요.");
+                return;
+            }
+            document.getElementById('prediction-title').innerText = `${selectedDate} 예상 혼잡도`;
+            document.getElementById('chart-container').innerHTML = '<p class="loading" style="padding: 40px;">🤖 AI가 시간대별 예측을 계산하는 중...</p>';
+            
+            fetch(`./predict?date=${selectedDate}`)
+                .then(response => response.json().then(data => ({ status: response.status, body: data })))
+                .then(({ status, body }) => {
+                    if (status !== 200) { throw body; }
+                    drawChart(body.predictions, body.weather_source, selectedDate);
+                })
+                .catch(handleFetchError);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const datePicker = document.getElementById('predict-date');
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+            
+            // 오늘 날짜를 기본값으로 설정
+            datePicker.value = todayStr;
+            datePicker.min = todayStr;
+
+            const timeDiv = document.getElementById('current-time');
+            function updateTime() {
+                const now = new Date();
+                timeDiv.innerText = now.toLocaleString('ko-KR', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric', 
+                    weekday: 'long', 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            }
+            updateTime();
+            setInterval(updateTime, 1000);
+
+            function simulateRealtimeData() {
+                const total = Math.floor(Math.random() * 80) + 10;
+                const male = Math.floor(total * (Math.random() * 0.4 + 0.3));
+                document.getElementById('total-count').innerText = total;
+                document.getElementById('male-count').innerText = male;
+                document.getElementById('female-count').innerText = total - male;
+            }
+            simulateRealtimeData();
+            setInterval(simulateRealtimeData, 5000);
+
+            // 페이지 로딩 시 오늘 날짜 예측 자동 실행
+            getPredictionByDate();
+        });
+    </script>
+</body>
+</html>
