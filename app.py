@@ -10,14 +10,39 @@ app = Flask(__name__)
 KMA_API_KEY = "6e5230b95ef0ab65ad4fb63e83f1b512f525f5a708933928098464ffa47da789"
 
 def get_weather_forecast(target_date):
-    """기상청 단기예보 API를 호출하여 특정 날짜의 날씨 예보를 가져오는 함수 (안정성 강화 버전)"""
-    base_date = (target_date - timedelta(days=1)).strftime('%Y%m%d')
+    """기상청 단기예보 API를 호출하여 특정 날짜의 날씨 예보를 가져오는 함수 (개선 버전)"""
+    # 현재 시각 기준으로 가장 최근 발표 시각 계산
+    now = datetime.now()
+    
+    # 단기예보 발표 시각: 02, 05, 08, 11, 14, 17, 20, 23시 (하루 8회)
+    # 각 발표 시각 이후 10분부터 데이터 제공
+    base_times = ['0200', '0500', '0800', '1100', '1400', '1700', '2000', '2300']
+    
+    current_hour = now.hour
+    current_minute = now.minute
+    
+    # 가장 최근 발표 시각 찾기
+    base_time = '0200'  # 기본값
+    base_date = now.strftime('%Y%m%d')
+    
+    for bt in reversed(base_times):
+        bt_hour = int(bt[:2])
+        # 발표 시각 이후 10분이 지났는지 확인
+        if current_hour > bt_hour or (current_hour == bt_hour and current_minute >= 10):
+            base_time = bt
+            break
+    else:
+        # 현재 시각이 02:10 이전이면, 전날 23시 데이터 사용
+        base_date = (now - timedelta(days=1)).strftime('%Y%m%d')
+        base_time = '2300'
+    
     url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
     params = {
         'serviceKey': KMA_API_KEY, 'pageNo': '1', 'numOfRows': '1000',
-        'dataType': 'JSON', 'base_date': base_date, 'base_time': '2300',
+        'dataType': 'JSON', 'base_date': base_date, 'base_time': base_time,
         'nx': '60', 'ny': '122'
     }
+    
     try:
         response = requests.get(url, params=params, timeout=30)
         if response.status_code != 200:
@@ -54,8 +79,24 @@ def get_weather_forecast(target_date):
 
         if category == 'TMP': forecast[hour]['기온'] = numeric_value
         elif category == 'REH': forecast[hour]['습도'] = numeric_value
-        elif category == 'PCP': forecast[hour]['강수량'] = numeric_value
-        elif category == 'SNO': forecast[hour]['적설'] = numeric_value
+        elif category == 'PCP': 
+            # 강수량 처리 ('강수없음' → 0)
+            if value == '강수없음':
+                forecast[hour]['강수량'] = 0.0
+            else:
+                try:
+                    forecast[hour]['강수량'] = float(value.replace('mm', ''))
+                except:
+                    forecast[hour]['강수량'] = numeric_value
+        elif category == 'SNO': 
+            # 적설 처리 ('적설없음' → 0)
+            if value == '적설없음':
+                forecast[hour]['적설'] = 0.0
+            else:
+                try:
+                    forecast[hour]['적설'] = float(value.replace('cm', ''))
+                except:
+                    forecast[hour]['적설'] = numeric_value
     return forecast
 
 @app.route('/')
