@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 app = Flask(__name__)
 
 # --- 1단계에서 발급받은 본인의 API 인증키를 여기에 붙여넣으세요 ---
-KMA_API_KEY = "6e5230b95ef0ab65ad4fb63e83f1b512f525f5a708933928098464ffa47da789"
+KMA_API_KEY = "94057a00005793242a78b4e2274cef1b9da37a65d7acd6598f852bced75ddb6d"
 
 def get_weather_forecast(target_date):
     """기상청 단기예보 API를 호출하여 특정 날짜의 날씨 예보를 가져오는 함수 (개선 버전)"""
