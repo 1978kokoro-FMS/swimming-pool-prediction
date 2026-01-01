@@ -40,7 +40,7 @@ def get_weather_forecast(target_date):
     print(f"[DEBUG] 현재 시각: {now.strftime('%Y-%m-%d %H:%M')}")
     print(f"[DEBUG] Base Date: {base_date}, Base Time: {base_time}")
     
-    url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
+    url = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
     params = {
         'serviceKey': KMA_API_KEY, 'pageNo': '1', 'numOfRows': '1000',
         'dataType': 'JSON', 'base_date': base_date, 'base_time': base_time,
